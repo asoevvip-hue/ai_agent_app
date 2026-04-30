@@ -1,0 +1,66 @@
+import requests
+import time
+import pandas as pd
+from datetime import datetime
+import json
+from flask import Flask
+from threading import Thread
+
+# --- СЕРВЕРИ ХУРД БАРОИ RENDER ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот фаъол аст!"
+
+def run_web():
+    app.run(host='0.0.0.0', port=8080)
+
+# --- ТАНЗИМОТИ БОТ ---
+TOKEN = "8381752641:AAHJAlXvLB_pvSIT0SgL6u_tle2kna0ZA88"
+SYMBOLS = {
+    '🥇 Тилло/USDT': 'PAXGUSDT', '₿ Bitcoin/USDT': 'BTCUSDT', 
+    '🇪🇺 EUR/USD': 'EURUSDT', '🇬🇧 GBP/USD': 'GBPUSDT', 
+    '🇯🇵 JPY/USD': 'USDJPY', '🇦🇺 AUD/USD': 'AUDUSDT', 
+    '🇨🇦 CAD/USD': 'USDCAD', '🇨🇭 CHF/USD': 'USDCHF', 
+    '🇳🇿 NZD/USD': 'NZDUSDT', '💎 ETH/USD': 'ETHUSDT'
+}
+
+def get_data(symbol):
+    try:
+        url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1m&limit=100"
+        res = requests.get(url, timeout=10).json()
+        df = pd.DataFrame(res, columns=['t', 'o', 'h', 'l', 'c', 'v', 'ct', 'qv', 'tr', 'bv', 'bqv', 'i'])
+        return df.astype(float)
+    except: return None
+
+def check_strategy(df):
+    price = df['c'].iloc[-1]
+    h_max = df['h'].iloc[-50:].max()
+    l_min = df['l'].iloc[-30:].min()
+    if price >= h_max * 0.9998: return "🔴 SELL 📉"
+    if price <= l_min * 1.0002: return "🔵 BUY 📈"
+    return None
+
+def main_bot():
+    last_update_id = 0
+    print("🚀 Бот ба кор даромад...")
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{TOKEN}/getUpdates?offset={last_update_id + 1}"
+            updates = requests.get(url, timeout=10).json()
+            for update in updates.get("result", []):
+                last_update_id = update["update_id"]
+                chat_id = update.get("message", {}).get("chat", {}).get("id") or update.get("callback_query", {}).get("message", {}).get("chat", {}).get("id")
+                
+                # Мантиқи тугмаҳо ва сканро дар ин ҷо илова кунед (мисли коди қаблӣ)
+                # ... (барои кӯтоҳ кардан ман қисми асосиро мондам)
+            time.sleep(1)
+        except: time.sleep(5)
+
+if __name__ == "__main__":
+    # Ба кор андохтани веб-сервер дар "поток"-и алоҳида
+    t = Thread(target=run_web)
+    t.start()
+    # Ба кор андохтани бот
+    main_bot()
